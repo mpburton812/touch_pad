@@ -2,6 +2,15 @@
 
 All notable changes to Touch Pad are documented here.
 
+## [1.2.0] - 2026-08-06
+
+### Added
+- Translucent top-down cube appearance for each pad.
+
+### Changed
+- Idle pad luminosity set to 30% (scales to 100% at peak volume).
+- Nebula backdrop spins slightly faster with a smooth field rotation.
+
 ## [1.1.0] - 2026-08-06
 
 ### Added

@@ -27,6 +27,6 @@ object PadCatalog {
         PadDefinition(7, Color(0xFFFF00BF), "C5", 523.25f),
     )
 
-    const val IDLE_INTENSITY = 0.9f
+    const val IDLE_INTENSITY = 0.3f
     const val ATTACK_MS = 250
 }
