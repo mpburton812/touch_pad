@@ -103,3 +103,7 @@ Execute this sequence per audio frame:
 - REQ: Swell attack pitch glide (~1 semitone) from intensity → swellPitchMult in voice render
 - REQ: Shimmer octave-up reverb send → shimmerSend bus into reverb
 - REQ: Persist four new sliders via DataStore + SavedStateHandle → `SettingsRepository` / `TouchPadViewModel`
+
+### 2026-08-06 � GitHub Pages version manifest
+
+- FIX: Serve update manifest from Pages /docs ? docs/version.json + .nojekyll`n
