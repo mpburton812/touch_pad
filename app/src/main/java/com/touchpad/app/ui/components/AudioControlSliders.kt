@@ -59,6 +59,10 @@ fun AudioControlSliders(
     onChorusChange: (Float) -> Unit,
     onEchoChange: (Float) -> Unit,
     onDecayChange: (Float) -> Unit,
+    onTextureChange: (Float) -> Unit,
+    onWeightChange: (Float) -> Unit,
+    onSwellChange: (Float) -> Unit,
+    onShimmerChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -77,6 +81,14 @@ fun AudioControlSliders(
         InBarSlider(stringResource(R.string.slider_echo), state.echo, onEchoChange)
         Spacer(Modifier.height(8.dp))
         InBarSlider(stringResource(R.string.slider_decay), state.decay, onDecayChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_texture), state.texture, onTextureChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_weight), state.weight, onWeightChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_swell), state.swell, onSwellChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_shimmer), state.shimmer, onShimmerChange)
     }
 }
 

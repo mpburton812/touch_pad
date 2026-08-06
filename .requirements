@@ -94,3 +94,12 @@ Execute this sequence per audio frame:
 - REQ: Idle luminosity 30%, peak 100% with volume → `IDLE_INTENSITY = 0.3`
 - REQ: Pads appear as translucent top-down cubes → `PadGrid` Canvas faces
 - REQ: Nebula spins a little faster → phase step 0.007 + subtle rotate
+
+### 2026-08-06 — TP-4 Rounded cubes + Texture/Weight/Swell/Shimmer
+
+- REQ: Soften cube pad corners → rounded `Path` faces in `PadGrid.TranslucentTopDownCube`
+- REQ: Texture pink-noise bed (continuous, pre-LPF) → `PinkNoise` + Texture slider
+- REQ: Weight sub-octave oscillator mix → voice sub phase + Weight slider
+- REQ: Swell attack pitch glide (~1 semitone) from intensity → swellPitchMult in voice render
+- REQ: Shimmer octave-up reverb send → shimmerSend bus into reverb
+- REQ: Persist four new sliders via DataStore + SavedStateHandle → `SettingsRepository` / `TouchPadViewModel`

@@ -2,6 +2,15 @@
 
 All notable changes to Touch Pad are documented here.
 
+## [1.3.0] - 2026-08-06
+
+### Added
+- Texture (pink-noise bed), Weight (sub-octave), Swell (attack pitch glide), and Shimmer (octave-up reverb send) sliders.
+- Rounded edges on translucent top-down cube pads.
+
+### Changed
+- DSP mix path inserts continuous Texture before the brightness LPF; Shimmer feeds the reverb bus.
+
 ## [1.2.0] - 2026-08-06
 
 ### Added
