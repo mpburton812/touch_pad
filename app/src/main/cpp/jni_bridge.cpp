@@ -105,6 +105,34 @@ Java_com_touchpad_app_audio_NativeAudioEngine_nativeSetEcho(JNIEnv*, jobject, jf
 }
 
 JNIEXPORT void JNICALL
+Java_com_touchpad_app_audio_NativeAudioEngine_nativeSetTexture(JNIEnv*, jobject, jfloat value) {
+    if (gEngine) {
+        gEngine->setTexture(value);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_touchpad_app_audio_NativeAudioEngine_nativeSetWeight(JNIEnv*, jobject, jfloat value) {
+    if (gEngine) {
+        gEngine->setWeight(value);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_touchpad_app_audio_NativeAudioEngine_nativeSetSwell(JNIEnv*, jobject, jfloat value) {
+    if (gEngine) {
+        gEngine->setSwell(value);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_touchpad_app_audio_NativeAudioEngine_nativeSetShimmer(JNIEnv*, jobject, jfloat value) {
+    if (gEngine) {
+        gEngine->setShimmer(value);
+    }
+}
+
+JNIEXPORT void JNICALL
 Java_com_touchpad_app_audio_NativeAudioEngine_nativeSetMuted(JNIEnv*, jobject, jboolean muted) {
     if (gEngine) {
         gEngine->setMuted(muted == JNI_TRUE);

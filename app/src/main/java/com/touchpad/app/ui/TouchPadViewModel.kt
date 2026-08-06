@@ -33,6 +33,10 @@ data class TouchPadUiState(
     val chorus: Float = 0.0f,
     val echo: Float = 0.0f,
     val decay: Float = 0.35f,
+    val texture: Float = 0.0f,
+    val weight: Float = 0.0f,
+    val swell: Float = 0.0f,
+    val shimmer: Float = 0.0f,
     val muted: Boolean = false,
     val drawerOpen: Boolean = false,
     val updateAvailable: RemoteVersion? = null,
@@ -58,6 +62,10 @@ class TouchPadViewModel(
             chorus = savedStateHandle["chorus"] ?: 0.0f,
             echo = savedStateHandle["echo"] ?: 0.0f,
             decay = savedStateHandle["decay"] ?: 0.35f,
+            texture = savedStateHandle["texture"] ?: 0.0f,
+            weight = savedStateHandle["weight"] ?: 0.0f,
+            swell = savedStateHandle["swell"] ?: 0.0f,
+            shimmer = savedStateHandle["shimmer"] ?: 0.0f,
             muted = savedStateHandle["muted"] ?: false,
             drawerOpen = savedStateHandle["drawerOpen"] ?: false,
         ),
@@ -182,6 +190,26 @@ class TouchPadViewModel(
             settingsRepository.updateDecay(it)
         }
 
+    fun onTextureChange(v: Float) =
+        updateFloat("texture", v, { copy(texture = it) }, audioEngine::setTexture) {
+            settingsRepository.updateTexture(it)
+        }
+
+    fun onWeightChange(v: Float) =
+        updateFloat("weight", v, { copy(weight = it) }, audioEngine::setWeight) {
+            settingsRepository.updateWeight(it)
+        }
+
+    fun onSwellChange(v: Float) =
+        updateFloat("swell", v, { copy(swell = it) }, audioEngine::setSwell) {
+            settingsRepository.updateSwell(it)
+        }
+
+    fun onShimmerChange(v: Float) =
+        updateFloat("shimmer", v, { copy(shimmer = it) }, audioEngine::setShimmer) {
+            settingsRepository.updateShimmer(it)
+        }
+
     private fun updateFloat(
         key: String,
         value: Float,
@@ -235,6 +263,10 @@ class TouchPadViewModel(
                 chorus = settings.chorus,
                 echo = settings.echo,
                 decay = settings.decay,
+                texture = settings.texture,
+                weight = settings.weight,
+                swell = settings.swell,
+                shimmer = settings.shimmer,
                 muted = settings.muted,
             )
         }
@@ -247,6 +279,10 @@ class TouchPadViewModel(
             savedStateHandle["chorus"] = settings.chorus
             savedStateHandle["echo"] = settings.echo
             savedStateHandle["decay"] = settings.decay
+            savedStateHandle["texture"] = settings.texture
+            savedStateHandle["weight"] = settings.weight
+            savedStateHandle["swell"] = settings.swell
+            savedStateHandle["shimmer"] = settings.shimmer
             savedStateHandle["muted"] = settings.muted
         }
         if (pushAudio) {
@@ -262,6 +298,10 @@ class TouchPadViewModel(
         audioEngine.setDrift(settings.drift)
         audioEngine.setChorus(settings.chorus)
         audioEngine.setEcho(settings.echo)
+        audioEngine.setTexture(settings.texture)
+        audioEngine.setWeight(settings.weight)
+        audioEngine.setSwell(settings.swell)
+        audioEngine.setShimmer(settings.shimmer)
         audioEngine.setMuted(settings.muted)
     }
 
@@ -274,6 +314,10 @@ class TouchPadViewModel(
         audioEngine.setDrift(s.drift)
         audioEngine.setChorus(s.chorus)
         audioEngine.setEcho(s.echo)
+        audioEngine.setTexture(s.texture)
+        audioEngine.setWeight(s.weight)
+        audioEngine.setSwell(s.swell)
+        audioEngine.setShimmer(s.shimmer)
         audioEngine.setMuted(s.muted)
     }
 

@@ -16,6 +16,8 @@ constexpr float kFrequencies[kPadCount] = {
     392.00f, 440.00f, 493.88f, 523.25f,
 };
 constexpr float kMasterGain = 0.25f;
+// One semitone down as a frequency ratio (2^(-1/12)).
+constexpr float kSemitoneDown = 0.943874f;
 }  // namespace
 
 AudioEngine::AudioEngine() {
@@ -105,31 +107,36 @@ void AudioEngine::setPadIntensity(int index, float intensity) {
 void AudioEngine::setTimbre(float value) {
     timbre_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
 void AudioEngine::setBrightness(float value) {
     brightness_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
 void AudioEngine::setAtmosphere(float value) {
     atmosphere_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
 void AudioEngine::setPulse(float value) {
     pulse_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
 void AudioEngine::setDrift(float value) {
     drift_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
 void AudioEngine::setChorus(float value) {
     chorusMix_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
 void AudioEngine::setEcho(float value) {
     echoMix_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
-
+void AudioEngine::setTexture(float value) {
+    texture_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+void AudioEngine::setWeight(float value) {
+    weight_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+void AudioEngine::setSwell(float value) {
+    swell_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+void AudioEngine::setShimmer(float value) {
+    shimmer_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
 void AudioEngine::setMuted(bool muted) {
     muted_.store(muted, std::memory_order_relaxed);
 }
@@ -146,6 +153,10 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     const float driftAmt = drift_.load(std::memory_order_relaxed);
     const float chorusAmt = chorusMix_.load(std::memory_order_relaxed);
     const float echoAmt = echoMix_.load(std::memory_order_relaxed);
+    const float texture = texture_.load(std::memory_order_relaxed);
+    const float weight = weight_.load(std::memory_order_relaxed);
+    const float swell = swell_.load(std::memory_order_relaxed);
+    const float shimmer = shimmer_.load(std::memory_order_relaxed);
     const bool muted = muted_.load(std::memory_order_relaxed);
 
     const float baseCutoff = 300.0f + brightness * 2700.0f;
@@ -156,49 +167,58 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     }
 
     for (int32_t frame = 0; frame < numFrames; ++frame) {
-        // 1) Global LFOs
         const float pulseSine = pulseLfo_.next();
         const float driftSine =
             0.5f * driftLfoA_.next() + 0.5f * driftLfoB_.next();
         const float chorusSine = chorusLfo_.next();
-
-        // Drift micro-multiplier: 1 ± 1.5% at full depth.
         const float driftMult = 1.0f + driftSine * driftAmt * 0.015f;
 
-        // 2–3) Voices + VCA
         float mixed = 0.0f;
+        float shimmerBus = 0.0f;
         for (int i = 0; i < kPadCount; ++i) {
-            mixed += voices_[i].render(timbre, driftMult) * intensities[i];
+            const float n = intensities[i];
+            // Swell: at full depth, start ~1 semitone flat when intensity is 0.
+            const float swellPitch =
+                1.0f - swell * (1.0f - n) * (1.0f - kSemitoneDown);
+            const VoiceSample sample = voices_[i].render(
+                timbre, driftMult, weight, shimmer, swellPitch);
+            mixed += sample.dry * n;
+            shimmerBus += sample.shimmerSend * n;
         }
 
-        // 4) Headroom
         mixed *= kMasterGain;
+        shimmerBus *= kMasterGain;
+
+        // Texture pink noise: continuous, not VCA'd — before LPF.
+        if (texture > 0.0001f) {
+            mixed += pinkNoise_.next(texture) * kMasterGain;
+        }
+
         if (muted) {
             mixed = 0.0f;
+            shimmerBus = 0.0f;
         }
 
-        // 5) LPF with Pulse (±2 octaves at full depth)
         const float oct = pulseSine * pulse * 2.0f;
         const float cutoff = baseCutoff * std::pow(2.0f, oct);
         filter_.setCutoffHz(cutoff);
         mixed = filter_.process(mixed);
 
-        // 6) Chorus → stereo
         float left = mixed;
         float right = mixed;
         chorus_.process(mixed, chorusAmt, chorusSine, left, right);
 
-        // 7) Echo
         float echoL = left;
         float echoR = right;
         echoEffect_.process(left, right, echoAmt, echoL, echoR);
 
-        // 8) Reverb
-        float revL = echoL;
-        float revR = echoR;
-        reverb_.process(echoL, echoR, atmosphere, revL, revR);
+        // Shimmer injects exclusively into the reverb input.
+        const float revInL = echoL + shimmerBus;
+        const float revInR = echoR + shimmerBus;
+        float revL = revInL;
+        float revR = revInR;
+        reverb_.process(revInL, revInR, atmosphere, revL, revR);
 
-        // 9) Interleaved stereo
         out[frame * 2] = std::clamp(revL, -1.0f, 1.0f);
         out[frame * 2 + 1] = std::clamp(revR, -1.0f, 1.0f);
     }

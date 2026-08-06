@@ -1,5 +1,6 @@
 #include "dsp/voice.h"
 
+#include <algorithm>
 #include <cmath>
 
 #ifndef M_PI
@@ -20,22 +21,44 @@ void Voice::updateIncrement() {
     phaseIncrement_ = frequencyHz_ / sampleRate_;
 }
 
-float Voice::render(float timbre, float driftMultiplier) {
-    const float inc = phaseIncrement_ * driftMultiplier;
-    phase_ += inc;
-    if (phase_ >= 1.0f) {
-        phase_ -= 1.0f;
+float Voice::wrapPhase(float phase) {
+    while (phase >= 1.0f) {
+        phase -= 1.0f;
     }
-    // Keep phase sane if drift ever pushes wrap oddly.
-    if (phase_ < 0.0f) {
-        phase_ += 1.0f;
+    while (phase < 0.0f) {
+        phase += 1.0f;
     }
+    return phase;
+}
 
-    const float sine = std::sin(phase_ * static_cast<float>(2.0 * M_PI));
+VoiceSample Voice::render(
+    float timbre,
+    float driftMultiplier,
+    float weightAmt,
+    float shimmerAmt,
+    float swellPitchMult) {
+    const float pitchScale = driftMultiplier * swellPitchMult;
+    const float inc = phaseIncrement_ * pitchScale;
+    const float subInc = phaseIncrement_ * 0.5f * pitchScale;
+    const float shimmerInc = phaseIncrement_ * 2.0f * pitchScale;
+
+    phase_ = wrapPhase(phase_ + inc);
+    subPhase_ = wrapPhase(subPhase_ + subInc);
+    shimmerPhase_ = wrapPhase(shimmerPhase_ + shimmerInc);
+
+    const float twoPi = static_cast<float>(2.0 * M_PI);
+    const float sine = std::sin(phase_ * twoPi);
     const float triangle = (phase_ < 0.5f)
         ? (4.0f * phase_ - 1.0f)
         : (3.0f - 4.0f * phase_);
+    const float t = std::clamp(timbre, 0.0f, 1.0f);
+    const float primary = sine * (1.0f - t) + triangle * t;
 
-    const float t = timbre < 0.0f ? 0.0f : (timbre > 1.0f ? 1.0f : timbre);
-    return sine * (1.0f - t) + triangle * t;
+    const float sub = std::sin(subPhase_ * twoPi) * std::clamp(weightAmt, 0.0f, 1.0f);
+    const float shimmer = std::sin(shimmerPhase_ * twoPi) * std::clamp(shimmerAmt, 0.0f, 1.0f);
+
+    VoiceSample out;
+    out.dry = primary + sub;
+    out.shimmerSend = shimmer;
+    return out;
 }

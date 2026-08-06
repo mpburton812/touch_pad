@@ -30,6 +30,10 @@ class NativeAudioEngine {
     fun setDrift(value: Float) = nativeSetDrift(value)
     fun setChorus(value: Float) = nativeSetChorus(value)
     fun setEcho(value: Float) = nativeSetEcho(value)
+    fun setTexture(value: Float) = nativeSetTexture(value)
+    fun setWeight(value: Float) = nativeSetWeight(value)
+    fun setSwell(value: Float) = nativeSetSwell(value)
+    fun setShimmer(value: Float) = nativeSetShimmer(value)
     fun setMuted(muted: Boolean) = nativeSetMuted(muted)
 
     private external fun nativeCreate(): Boolean
@@ -44,5 +48,9 @@ class NativeAudioEngine {
     private external fun nativeSetDrift(value: Float)
     private external fun nativeSetChorus(value: Float)
     private external fun nativeSetEcho(value: Float)
+    private external fun nativeSetTexture(value: Float)
+    private external fun nativeSetWeight(value: Float)
+    private external fun nativeSetSwell(value: Float)
+    private external fun nativeSetShimmer(value: Float)
     private external fun nativeSetMuted(muted: Boolean)
 }
