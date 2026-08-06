@@ -8,6 +8,7 @@ import com.touchpad.app.audio.IntensityMapper
 import com.touchpad.app.audio.NativeAudioEngine
 import com.touchpad.app.data.GameSettings
 import com.touchpad.app.data.SettingsRepository
+import com.touchpad.app.model.DecayTiming
 import com.touchpad.app.model.PadCatalog
 import com.touchpad.app.update.RemoteVersion
 import com.touchpad.app.update.VersionChecker
@@ -27,15 +28,18 @@ data class TouchPadUiState(
     val timbre: Float = 0.0f,
     val brightness: Float = 0.7f,
     val atmosphere: Float = 0.35f,
+    val pulse: Float = 0.0f,
+    val drift: Float = 0.0f,
+    val chorus: Float = 0.0f,
+    val echo: Float = 0.0f,
+    val decay: Float = 0.35f,
     val muted: Boolean = false,
+    val drawerOpen: Boolean = false,
     val updateAvailable: RemoteVersion? = null,
 )
 
 /**
- * Orchestrates pad envelopes, slider persistence, and JNI parameter pushes.
- *
- * Critical UI state is mirrored into [SavedStateHandle] so process death while
- * backgrounded can rebuild the board without snapping to defaults.
+ * Press-and-hold pad envelopes, slider persistence, and JNI parameter pushes.
  */
 class TouchPadViewModel(
     private val settingsRepository: SettingsRepository,
@@ -49,14 +53,19 @@ class TouchPadViewModel(
             timbre = savedStateHandle["timbre"] ?: 0.0f,
             brightness = savedStateHandle["brightness"] ?: 0.7f,
             atmosphere = savedStateHandle["atmosphere"] ?: 0.35f,
+            pulse = savedStateHandle["pulse"] ?: 0.0f,
+            drift = savedStateHandle["drift"] ?: 0.0f,
+            chorus = savedStateHandle["chorus"] ?: 0.0f,
+            echo = savedStateHandle["echo"] ?: 0.0f,
+            decay = savedStateHandle["decay"] ?: 0.35f,
             muted = savedStateHandle["muted"] ?: false,
+            drawerOpen = savedStateHandle["drawerOpen"] ?: false,
         ),
     )
     val uiState: StateFlow<TouchPadUiState> = _uiState.asStateFlow()
 
     private val envelopeJobs = arrayOfNulls<Job>(PadCatalog.pads.size)
-
-    /** Current visual intensity per pad; used so retriggers lerp from mid-envelope values. */
+    private val pressed = BooleanArray(PadCatalog.pads.size) { false }
     private val currentIntensities = FloatArray(PadCatalog.pads.size) { PadCatalog.IDLE_INTENSITY }
 
     init {
@@ -71,31 +80,32 @@ class TouchPadViewModel(
                 _uiState.update { it.copy(updateAvailable = update) }
             }
         }
-        // Push restored slider values into native atomics immediately.
         pushAllAudioParams()
     }
 
-    fun onPadTapped(index: Int) {
+    fun onPadPressed(index: Int) {
         if (index !in PadCatalog.pads.indices) return
+        pressed[index] = true
         envelopeJobs[index]?.cancel()
-        // Main.immediate: UI StateFlow updates stay on the UI thread without a Compose frame clock.
         envelopeJobs[index] = viewModelScope.launch(Dispatchers.Main.immediate) {
-            runEnvelope(index)
+            lerpIntensity(index, target = 1.0f, durationMs = PadCatalog.ATTACK_MS)
+            // Sustain while held — intensity stays at peak; native VCA follows.
+            while (coroutineContext.isActive && pressed[index]) {
+                publishIntensity(index, 1.0f)
+                delay(FRAME_MS)
+            }
         }
     }
 
-    /**
-     * Attack → Hold → Decay envelope bound to visual alpha and native VCA.
-     *
-     * Why wall-clock lerp instead of Compose Animatable: Animatable requires a
-     * MonotonicFrameClock that viewModelScope does not provide, which crashed on tap.
-     */
-    private suspend fun runEnvelope(index: Int) {
-        lerpIntensity(index, target = 1.0f, durationMs = PadCatalog.ATTACK_MS)
-        delay(PadCatalog.HOLD_MS.toLong())
-        lerpIntensity(index, target = PadCatalog.IDLE_INTENSITY, durationMs = PadCatalog.DECAY_MS)
-        // Audio amplitude returns to 0 while visual idle alpha stays at IDLE_INTENSITY.
-        audioEngine.setPadIntensity(index, 0.0f)
+    fun onPadReleased(index: Int) {
+        if (index !in PadCatalog.pads.indices) return
+        pressed[index] = false
+        envelopeJobs[index]?.cancel()
+        val decayMs = DecayTiming.sliderToMs(_uiState.value.decay)
+        envelopeJobs[index] = viewModelScope.launch(Dispatchers.Main.immediate) {
+            lerpIntensity(index, target = PadCatalog.IDLE_INTENSITY, durationMs = decayMs)
+            audioEngine.setPadIntensity(index, 0.0f)
+        }
     }
 
     private suspend fun lerpIntensity(index: Int, target: Float, durationMs: Int) {
@@ -117,8 +127,10 @@ class TouchPadViewModel(
     private fun publishIntensity(index: Int, visualAlpha: Float) {
         val clamped = visualAlpha.coerceIn(PadCatalog.IDLE_INTENSITY, 1.0f)
         currentIntensities[index] = clamped
-        val audioAmp = IntensityMapper.visualToAudio(clamped, PadCatalog.IDLE_INTENSITY)
-        audioEngine.setPadIntensity(index, audioAmp)
+        audioEngine.setPadIntensity(
+            index,
+            IntensityMapper.visualToAudio(clamped, PadCatalog.IDLE_INTENSITY),
+        )
         _uiState.update { state ->
             val next = state.intensities.toMutableList()
             next[index] = clamped
@@ -126,28 +138,62 @@ class TouchPadViewModel(
         }
     }
 
-    fun onTimbreChange(value: Float) {
-        val v = value.coerceIn(0f, 1f)
-        _uiState.update { it.copy(timbre = v) }
-        savedStateHandle["timbre"] = v
-        audioEngine.setTimbre(v)
-        viewModelScope.launch { settingsRepository.updateTimbre(v) }
+    fun setDrawerOpen(open: Boolean) {
+        _uiState.update { it.copy(drawerOpen = open) }
+        savedStateHandle["drawerOpen"] = open
     }
 
-    fun onBrightnessChange(value: Float) {
-        val v = value.coerceIn(0f, 1f)
-        _uiState.update { it.copy(brightness = v) }
-        savedStateHandle["brightness"] = v
-        audioEngine.setBrightness(v)
-        viewModelScope.launch { settingsRepository.updateBrightness(v) }
+    fun onTimbreChange(v: Float) = updateFloat("timbre", v, { copy(timbre = it) }, audioEngine::setTimbre) {
+        settingsRepository.updateTimbre(it)
     }
 
-    fun onAtmosphereChange(value: Float) {
+    fun onBrightnessChange(v: Float) =
+        updateFloat("brightness", v, { copy(brightness = it) }, audioEngine::setBrightness) {
+            settingsRepository.updateBrightness(it)
+        }
+
+    fun onAtmosphereChange(v: Float) =
+        updateFloat("atmosphere", v, { copy(atmosphere = it) }, audioEngine::setAtmosphere) {
+            settingsRepository.updateAtmosphere(it)
+        }
+
+    fun onPulseChange(v: Float) =
+        updateFloat("pulse", v, { copy(pulse = it) }, audioEngine::setPulse) {
+            settingsRepository.updatePulse(it)
+        }
+
+    fun onDriftChange(v: Float) =
+        updateFloat("drift", v, { copy(drift = it) }, audioEngine::setDrift) {
+            settingsRepository.updateDrift(it)
+        }
+
+    fun onChorusChange(v: Float) =
+        updateFloat("chorus", v, { copy(chorus = it) }, audioEngine::setChorus) {
+            settingsRepository.updateChorus(it)
+        }
+
+    fun onEchoChange(v: Float) =
+        updateFloat("echo", v, { copy(echo = it) }, audioEngine::setEcho) {
+            settingsRepository.updateEcho(it)
+        }
+
+    fun onDecayChange(v: Float) =
+        updateFloat("decay", v, { copy(decay = it) }, { _: Float -> }) {
+            settingsRepository.updateDecay(it)
+        }
+
+    private fun updateFloat(
+        key: String,
+        value: Float,
+        copyState: TouchPadUiState.(Float) -> TouchPadUiState,
+        pushNative: (Float) -> Unit,
+        persist: suspend (Float) -> Unit,
+    ) {
         val v = value.coerceIn(0f, 1f)
-        _uiState.update { it.copy(atmosphere = v) }
-        savedStateHandle["atmosphere"] = v
-        audioEngine.setAtmosphere(v)
-        viewModelScope.launch { settingsRepository.updateAtmosphere(v) }
+        _uiState.update { it.copyState(v) }
+        savedStateHandle[key] = v
+        pushNative(v)
+        viewModelScope.launch { persist(v) }
     }
 
     fun onMuteToggle() {
@@ -178,16 +224,17 @@ class TouchPadViewModel(
         super.onCleared()
     }
 
-    private fun applySettings(
-        settings: GameSettings,
-        persistHandle: Boolean,
-        pushAudio: Boolean,
-    ) {
+    private fun applySettings(settings: GameSettings, persistHandle: Boolean, pushAudio: Boolean) {
         _uiState.update {
             it.copy(
                 timbre = settings.timbre,
                 brightness = settings.brightness,
                 atmosphere = settings.atmosphere,
+                pulse = settings.pulse,
+                drift = settings.drift,
+                chorus = settings.chorus,
+                echo = settings.echo,
+                decay = settings.decay,
                 muted = settings.muted,
             )
         }
@@ -195,22 +242,39 @@ class TouchPadViewModel(
             savedStateHandle["timbre"] = settings.timbre
             savedStateHandle["brightness"] = settings.brightness
             savedStateHandle["atmosphere"] = settings.atmosphere
+            savedStateHandle["pulse"] = settings.pulse
+            savedStateHandle["drift"] = settings.drift
+            savedStateHandle["chorus"] = settings.chorus
+            savedStateHandle["echo"] = settings.echo
+            savedStateHandle["decay"] = settings.decay
             savedStateHandle["muted"] = settings.muted
         }
         if (pushAudio) {
-            audioEngine.setTimbre(settings.timbre)
-            audioEngine.setBrightness(settings.brightness)
-            audioEngine.setAtmosphere(settings.atmosphere)
-            audioEngine.setMuted(settings.muted)
+            pushSettingsToNative(settings)
         }
     }
 
+    private fun pushSettingsToNative(settings: GameSettings) {
+        audioEngine.setTimbre(settings.timbre)
+        audioEngine.setBrightness(settings.brightness)
+        audioEngine.setAtmosphere(settings.atmosphere)
+        audioEngine.setPulse(settings.pulse)
+        audioEngine.setDrift(settings.drift)
+        audioEngine.setChorus(settings.chorus)
+        audioEngine.setEcho(settings.echo)
+        audioEngine.setMuted(settings.muted)
+    }
+
     private fun pushAllAudioParams() {
-        val state = _uiState.value
-        audioEngine.setTimbre(state.timbre)
-        audioEngine.setBrightness(state.brightness)
-        audioEngine.setAtmosphere(state.atmosphere)
-        audioEngine.setMuted(state.muted)
+        val s = _uiState.value
+        audioEngine.setTimbre(s.timbre)
+        audioEngine.setBrightness(s.brightness)
+        audioEngine.setAtmosphere(s.atmosphere)
+        audioEngine.setPulse(s.pulse)
+        audioEngine.setDrift(s.drift)
+        audioEngine.setChorus(s.chorus)
+        audioEngine.setEcho(s.echo)
+        audioEngine.setMuted(s.muted)
     }
 
     companion object {

@@ -12,14 +12,14 @@ add_library(
     dsp/voice.cpp
     dsp/filter.cpp
     dsp/reverb.cpp
+    dsp/chorus.cpp
+    dsp/echo.cpp
 )
 
 find_package(oboe REQUIRED CONFIG)
 
 target_include_directories(touchpad_audio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-# 16 KB page-size ELF alignment (required on Android 15+ / modern emulators).
-# NDK r28 enables this by default; flags remain explicit so CI/tooling can't regress.
 target_link_options(
     touchpad_audio
     PRIVATE

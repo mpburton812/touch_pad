@@ -5,6 +5,14 @@
     <string name="slider_timbre">Timbre</string>
     <string name="slider_brightness">Brightness</string>
     <string name="slider_atmosphere">Atmosphere</string>
+    <string name="slider_pulse">Pulse</string>
+    <string name="slider_drift">Drift</string>
+    <string name="slider_chorus">Chorus</string>
+    <string name="slider_echo">Echo</string>
+    <string name="slider_decay">Decay</string>
+    <string name="controls">Controls</string>
+    <string name="controls_show">Show controls</string>
+    <string name="controls_hide">Hide controls</string>
     <string name="mute">Mute</string>
     <string name="unmute">Unmute</string>
     <string name="update_available_title">Update available</string>
