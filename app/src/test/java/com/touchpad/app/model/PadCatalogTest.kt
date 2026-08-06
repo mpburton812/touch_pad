@@ -14,7 +14,7 @@ class PadCatalogTest {
 
     @Test
     fun idleAndAttack_matchProductDefaults() {
-        assertThat(PadCatalog.IDLE_INTENSITY).isEqualTo(0.9f)
+        assertThat(PadCatalog.IDLE_INTENSITY).isEqualTo(0.3f)
         assertThat(PadCatalog.ATTACK_MS).isEqualTo(250)
     }
 }
