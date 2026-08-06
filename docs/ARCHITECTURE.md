@@ -1,47 +1,29 @@
 # Architecture — Touch Pad
 
-Single-user calming STEM toy: eight colored pads over a nebula backdrop, synthesized through a native Oboe DSP engine.
+Single-user calming STEM toy: eight colored pads over a nebula backdrop, synthesized through a native stereo Oboe DSP engine.
 
 ## Layers
 
 ```
 Jetpack Compose UI
-    │  PointerInput taps + slider StateFlow
+    │  Press/release pads + bottom Controls drawer
     ▼
 TouchPadViewModel (SavedStateHandle + DataStore)
     │  JNI atomics (no locks in audio callback)
     ▼
-Native C++ AudioEngine (Oboe LowLatency / Exclusive)
-    │  Voice → Mix×0.25 → LPF → Reverb → Output
+Native C++ AudioEngine (Oboe LowLatency / Exclusive / Stereo)
+    │  LFOs → Voices(+Drift) → VCA → Mix×0.25 → LPF(Pulse)
+    │  → Chorus → Echo → Reverb → interleaved L/R
     ▼
 Device audio
 ```
 
-## Pad table
-
-| # | Color | Note | Hz |
-|---|---|---|---|
-| 0 | #FF0000 | C4 | 261.63 |
-| 1 | #FFBF00 | D4 | 293.66 |
-| 2 | #80FF00 | E4 | 329.63 |
-| 3 | #00FF40 | F4 | 349.23 |
-| 4 | #00FFFF | G4 | 392.00 |
-| 5 | #0040FF | A4 | 440.00 |
-| 6 | #8000FF | B4 | 493.88 |
-| 7 | #FF00BF | C5 | 523.25 |
-
 ## Envelope
 
-Visual alpha and audio VCA are coupled:
+- Press: attack 250ms to peak; sustain while held
+- Release: decay duration from Decay slider (80ms–4000ms) back to idle alpha 0.9
+- Visual alpha and audio VCA stay coupled via IntensityMapper
 
-- Idle visual alpha `0.2`, audio amplitude `0.0`
-- Attack `250ms` → Hold `1000ms` → Decay `500ms`
-- Retrigger cancels and lerps from current value (no snap)
-- Reverb sits **after** VCA so tails ring while pads dim
+## Controls drawer
 
-## Security / lifecycle
-
-- `network_security_config` disables cleartext
-- Manifest components declare `android:exported` explicitly
-- Version checks use static `version.json` (not GitHub REST)
-- Oboe start/stop bound to Activity `RESUMED`
+Bottom handle expands a panel (alpha 0.9) over the pads with Timbre, Brightness, Atmosphere, Pulse, Drift, Chorus, Echo, Decay.

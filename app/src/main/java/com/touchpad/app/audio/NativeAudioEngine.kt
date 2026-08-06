@@ -1,10 +1,7 @@
 package com.touchpad.app.audio
 
 /**
- * JNI façade over the native Oboe DSP engine.
- *
- * Why a thin Kotlin wrapper: Compose/ViewModel stay free of native pointer
- * management while still binding stream lifecycle to Activity resume/pause.
+ * JNI façade over the native stereo Oboe DSP engine.
  */
 class NativeAudioEngine {
     init {
@@ -26,21 +23,14 @@ class NativeAudioEngine {
         nativeSetPadIntensity(index, intensity)
     }
 
-    fun setTimbre(value: Float) {
-        nativeSetTimbre(value)
-    }
-
-    fun setBrightness(value: Float) {
-        nativeSetBrightness(value)
-    }
-
-    fun setAtmosphere(value: Float) {
-        nativeSetAtmosphere(value)
-    }
-
-    fun setMuted(muted: Boolean) {
-        nativeSetMuted(muted)
-    }
+    fun setTimbre(value: Float) = nativeSetTimbre(value)
+    fun setBrightness(value: Float) = nativeSetBrightness(value)
+    fun setAtmosphere(value: Float) = nativeSetAtmosphere(value)
+    fun setPulse(value: Float) = nativeSetPulse(value)
+    fun setDrift(value: Float) = nativeSetDrift(value)
+    fun setChorus(value: Float) = nativeSetChorus(value)
+    fun setEcho(value: Float) = nativeSetEcho(value)
+    fun setMuted(muted: Boolean) = nativeSetMuted(muted)
 
     private external fun nativeCreate(): Boolean
     private external fun nativeDestroy()
@@ -50,5 +40,9 @@ class NativeAudioEngine {
     private external fun nativeSetTimbre(value: Float)
     private external fun nativeSetBrightness(value: Float)
     private external fun nativeSetAtmosphere(value: Float)
+    private external fun nativeSetPulse(value: Float)
+    private external fun nativeSetDrift(value: Float)
+    private external fun nativeSetChorus(value: Float)
+    private external fun nativeSetEcho(value: Float)
     private external fun nativeSetMuted(muted: Boolean)
 }

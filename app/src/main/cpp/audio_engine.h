@@ -5,7 +5,10 @@
 #include <memory>
 #include <oboe/Oboe.h>
 
+#include "dsp/chorus.h"
+#include "dsp/echo.h"
 #include "dsp/filter.h"
+#include "dsp/lfo.h"
 #include "dsp/reverb.h"
 #include "dsp/voice.h"
 
@@ -14,11 +17,7 @@ namespace touchpad {
 constexpr int kPadCount = 8;
 
 /**
- * Lock-free native audio engine driven by Oboe.
- *
- * Why: pad intensity and slider parameters are written from the UI/JNI thread
- * while the audio callback runs on a high-priority audio thread. Atomics avoid
- * mutexes inside onAudioReady, which would cause priority inversion and dropouts.
+ * Lock-free stereo Oboe engine: voices → VCA → LPF(Pulse) → Chorus → Echo → Reverb.
  */
 class AudioEngine : public oboe::AudioStreamDataCallback,
                     public oboe::AudioStreamErrorCallback {
@@ -33,6 +32,10 @@ public:
     void setTimbre(float value);
     void setBrightness(float value);
     void setAtmosphere(float value);
+    void setPulse(float value);
+    void setDrift(float value);
+    void setChorus(float value);
+    void setEcho(float value);
     void setMuted(bool muted);
 
     oboe::DataCallbackResult onAudioReady(
@@ -48,12 +51,23 @@ private:
     std::shared_ptr<oboe::AudioStream> stream_;
     Voice voices_[kPadCount];
     LowPassFilter filter_;
+    StereoChorus chorus_;
+    StereoEcho echoEffect_;
     SimpleReverb reverb_;
+
+    SineLfo pulseLfo_;
+    SineLfo driftLfoA_;
+    SineLfo driftLfoB_;
+    SineLfo chorusLfo_;
 
     std::atomic<float> padIntensity_[kPadCount]{};
     std::atomic<float> timbre_{0.0f};
     std::atomic<float> brightness_{0.7f};
     std::atomic<float> atmosphere_{0.35f};
+    std::atomic<float> pulse_{0.0f};
+    std::atomic<float> drift_{0.0f};
+    std::atomic<float> chorusMix_{0.0f};
+    std::atomic<float> echoMix_{0.0f};
     std::atomic<bool> muted_{false};
 
     float sampleRate_ = 48000.0f;

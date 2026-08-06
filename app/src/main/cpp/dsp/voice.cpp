@@ -20,15 +20,18 @@ void Voice::updateIncrement() {
     phaseIncrement_ = frequencyHz_ / sampleRate_;
 }
 
-float Voice::render(float timbre) {
-    // Wrap phase into [0, 1) without using fmod (cheaper / branch-light).
-    phase_ += phaseIncrement_;
+float Voice::render(float timbre, float driftMultiplier) {
+    const float inc = phaseIncrement_ * driftMultiplier;
+    phase_ += inc;
     if (phase_ >= 1.0f) {
         phase_ -= 1.0f;
     }
+    // Keep phase sane if drift ever pushes wrap oddly.
+    if (phase_ < 0.0f) {
+        phase_ += 1.0f;
+    }
 
     const float sine = std::sin(phase_ * static_cast<float>(2.0 * M_PI));
-    // Triangle from phase: 4*|x-0.5|-1 style mapped to [-1,1].
     const float triangle = (phase_ < 0.5f)
         ? (4.0f * phase_ - 1.0f)
         : (3.0f - 4.0f * phase_);

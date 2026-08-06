@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.touchpad.app.R
+import com.touchpad.app.ui.TouchPadUiState
 import kotlin.math.roundToInt
 
 private val SliderHeight = 36.dp
@@ -45,45 +46,40 @@ private val LightLabel = Color.White
 private val DarkLabel = Color(0xFF1A1028)
 
 /**
- * Compact Timbre / Brightness / Atmosphere controls with in-bar labels.
+ * Full synth control bank used inside the bottom drawer.
  */
 @Composable
 fun AudioControlSliders(
-    timbre: Float,
-    brightness: Float,
-    atmosphere: Float,
+    state: TouchPadUiState,
     onTimbreChange: (Float) -> Unit,
     onBrightnessChange: (Float) -> Unit,
     onAtmosphereChange: (Float) -> Unit,
+    onPulseChange: (Float) -> Unit,
+    onDriftChange: (Float) -> Unit,
+    onChorusChange: (Float) -> Unit,
+    onEchoChange: (Float) -> Unit,
+    onDecayChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        InBarSlider(
-            label = stringResource(R.string.slider_timbre),
-            value = timbre,
-            onValueChange = onTimbreChange,
-        )
+        InBarSlider(stringResource(R.string.slider_timbre), state.timbre, onTimbreChange)
         Spacer(Modifier.height(8.dp))
-        InBarSlider(
-            label = stringResource(R.string.slider_brightness),
-            value = brightness,
-            onValueChange = onBrightnessChange,
-        )
+        InBarSlider(stringResource(R.string.slider_brightness), state.brightness, onBrightnessChange)
         Spacer(Modifier.height(8.dp))
-        InBarSlider(
-            label = stringResource(R.string.slider_atmosphere),
-            value = atmosphere,
-            onValueChange = onAtmosphereChange,
-        )
+        InBarSlider(stringResource(R.string.slider_atmosphere), state.atmosphere, onAtmosphereChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_pulse), state.pulse, onPulseChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_drift), state.drift, onDriftChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_chorus), state.chorus, onChorusChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_echo), state.echo, onEchoChange)
+        Spacer(Modifier.height(8.dp))
+        InBarSlider(stringResource(R.string.slider_decay), state.decay, onDecayChange)
     }
 }
 
-/**
- * Single-row slider: full-height thumb, label inside the track with dual-contrast text.
- *
- * Why dual text: as the active fill moves under the label, light text stays readable on
- * the purple fill and dark text on the inactive remainder without changing layout height.
- */
 @Composable
 private fun InBarSlider(
     label: String,
@@ -124,7 +120,6 @@ private fun InBarSlider(
                 .fillMaxWidth(clamped)
                 .background(ActiveTrack),
         )
-
         val thumbOffsetPx = ((trackWidthPx * clamped) - thumbPx / 2f)
             .coerceIn(0f, (trackWidthPx - thumbPx).coerceAtLeast(0f))
         Box(
@@ -135,8 +130,6 @@ private fun InBarSlider(
                 .fillMaxHeight()
                 .background(Color.White),
         )
-
-        // Shared label geometry: dark full label, then light label clipped to active width.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -150,8 +143,6 @@ private fun InBarSlider(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // Clip light text to the portion of the *padded* content under the active fill.
-            // Approximate: active fraction of full track, clipped from the start of this box.
             Box(
                 modifier = Modifier
                     .matchParentSize()

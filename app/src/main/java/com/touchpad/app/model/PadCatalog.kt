@@ -29,6 +29,4 @@ object PadCatalog {
 
     const val IDLE_INTENSITY = 0.9f
     const val ATTACK_MS = 250
-    const val HOLD_MS = 1000
-    const val DECAY_MS = 500
 }
