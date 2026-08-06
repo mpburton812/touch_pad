@@ -1,0 +1,19 @@
+# touch_pad — local & build artifacts
+*.iml
+.gradle/
+**/build/
+local.properties
+.idea/
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+.DS_Store
+*.log
+*.keystore
+*.jks
+.kotlin/

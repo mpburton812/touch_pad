@@ -1,0 +1,83 @@
+I want to design an Android application that is a relaxing noise and color STEM toy. Please build this using Jetpack Compose and native C++ audio via Oboe.
+
+### Core Layout and Visuals
+There are eight squares in a 2x4 grid pattern. The colors, layout order, and assigned notes are as follows:
+
+| Position | Hex Color | Note (Freq Hz) |
+| :--- | :--- | :--- |
+| 1, 2 | #FF0000, #FFBF00 | C4 (261.63), D4 (293.66) |
+| 3, 4 | #80FF00, #00FF40 | E4 (329.63), F4 (349.23) |
+| 5, 6 | #00FFFF, #0040FF | G4 (392.00), A4 (440.00) |
+| 7, 8 | #8000FF, #FF00BF | B4 (493.88), C5 (523.25) |
+
+### Background
+The background should be a high-resolution slowing turning multi-hued space nebula that takes covers the entire screen. 
+
+The github repo is at https://github.com/mpburton812/touch_pad
+
+The jira board is at https://mpburton.atlassian.net/jira/software/projects/TP/boards/40?filter=&groupBy=none
+
+### Visual and Audio Envelopes (Synchronization)
+The visual intensity and the audio amplitude (VCA) are strictly bound together to maintain audio-visual sync.
+* Default State: The square's visual intensity is 20% (0.2 alpha), and its individual audio amplitude is 0.0.
+* On Click (Attack/Hold/Decay): 
+  - Intensity increases from current state to 100% (1.0) over 0.25 seconds.
+  - Stays at 100% for 1 second.
+  - Decreases back to 20% intensity (and 0.0 audio amplitude) over 0.50 seconds.
+* Retrigger Logic: If a square is tapped mid-decay, the current animation coroutine must be cancelled. It must smoothly lerp from its current intensity back to 1.0 over 0.25 seconds without snapping. Pass the current alpha value to JNI on every frame tick.
+
+### Audio Control Sliders
+Implement three UI sliders to control the procedural sound engine:
+1. Timbre (Waveform Morphing): Crossfades the fundamental oscillator shape. 0% = Sine Wave (pure, mellow), 100% = Triangle/Sawtooth Wave (richer, buzzier).
+2. Brightness (Low-Pass Filter): Controls the cutoff frequency of a 12dB or 24dB LPF. 0% = ~300 Hz (warm, muffled), 100% = ~3000 Hz (bright, bell-like).
+3. Atmosphere (Reverb Wet/Dry): Controls spatial reverb mix. 0% = Dry (clinically precise), 100% = Wet (cavernous echo, chordal drone). Note: Route the audio through the Reverb effect AFTER the VCA so the visual square can dim to 20% while the reverb tail rings out.
+
+### Audio Architecture Stack
+* JVM Layer: Jetpack Compose for the UI. Use `PointerInput` / `detectTapGestures` for low-latency touch events.
+* JNI: The communication bridge passing state changes (touches, slider values, alpha updates) to native C++.
+* C++ DSP Engine: Houses oscillators, filters, reverb, and the mixing console.
+* Audio Output: Oboe Stream configured with `PerformanceMode::LowLatency` and `SharingMode::Exclusive`, using `onAudioReady`.
+
+### Thread Safety and Parameter Binding
+* Avoid Locks: Never use mutexes or locks inside the `onAudioReady` callback to prevent audio dropouts.
+* Use Atomics: Store the 3 slider states and the 8 square intensities as `std::atomic<float>` in the C++ engine for lock-free reads by the audio thread and atomic writes from JNI.
+
+### DSP Pipeline Execution (onAudioReady)
+Execute this sequence per audio frame:
+1. Read States: Retrieve atomic values for Timbre, Brightness, Atmosphere, and the 8 intensities.
+2. Generate Voices: Calculate waveforms, maintaining continuous phase accumulators across frames to prevent clicks. Interpolate between Sine/Triangle based on Timbre.
+3. Apply Amplitude: Scale each voice's amplitude directly by its visual intensity atomic float.
+4. Mix & Scale: Sum the 8 scaled voices into a single master bus. Multiply the mixed bus by a headroom coefficient of 0.25 to prevent digital clipping.
+5. Filter: Apply the LPF to the master bus using the Brightness parameter.
+6. Reverberate: Route the filtered signal into the Reverb algorithm, blending based on the Atmosphere parameter.
+7. Output: Write the frame to the buffer.
+
+### Build and Lifecycle Constraints
+* Build System: Use CMake with Oboe Prefab integration. Enable `minSdkVersion 27` (Android 8.1 for AAudio support).
+* App `build.gradle.kts` must include: `buildFeatures { prefab = true }` and the Oboe dependency.
+* Lifecycle: Bind Oboe stream initialization/destruction to the Compose/Activity lifecycle (`onResume()`/`onPause()`). Clean up raw C++ pointers when destroyed.
+
+---
+
+## Delivery log
+
+### 2026-08-05 — TP-1 Bootstrap (initial application scaffold)
+
+- REQ: 2×4 pad grid with specified colors/notes → `PadCatalog`, `PadGrid`
+- REQ: Nebula full-screen background → `NebulaBackground`
+- REQ: Attack/hold/decay envelope + retrigger lerp + JNI intensity ticks → `TouchPadViewModel`
+- REQ: Timbre / Brightness / Atmosphere sliders → `AudioControlSliders` + native atomics
+- REQ: Oboe + CMake Prefab + lock-free DSP pipeline → `app/src/main/cpp/*`
+- REQ: minSdk 27, lifecycle-bound stream → `app/build.gradle.kts`, `MainActivity`
+- REQ: DataStore settings, version.json check, network security, FileProvider → supporting modules
+
+### 2026-08-05 — TP-1 16 KB page-size compatibility
+
+- REQ: Native libs must load on 16 KB page-size devices/emulators → NDK `28.2.13676358`, CMake `-Wl,-z,max-page-size=16384`, Oboe `1.10.0`, uncompressed JNI packaging
+
+### 2026-08-06 — TP-1 Pad layout / sliders / tap crash
+
+- REQ: Pads must not overlap → `BoxWithConstraints` fit-to-bounds grid in `PadGrid`
+- REQ: Idle pads 10% transparent (alpha 0.9) → `PadCatalog.IDLE_INTENSITY`
+- REQ: Compact in-bar Timbre/Brightness/Atmosphere sliders with full-height thumb + contrast labels → `AudioControlSliders`
+- FIX: Force-close on pad tap → replace Compose `Animatable` in ViewModel with wall-clock lerp (no `MonotonicFrameClock`)

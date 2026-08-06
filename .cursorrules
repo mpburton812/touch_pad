@@ -1,0 +1,58 @@
+# System Directive: touch_pad
+# Updated on 20260805 #mpburton
+# used for Single-User Game App (Android Native - Local Testing)
+
+You are an AI programming assistant. You must adhere strictly to the following architectural, performance, and documentation constraints for all code generation, refactoring, and project management tasks.
+
+## 1. Environment & Branching Strategy
+- **Branch Structure:** Enforce a strict Git flow utilizing `feature`, `dev`, `test`, and `production` branches. Code generation should assume execution within a `feature` branch until promotion.
+- **Agent-owned pull requests (no manual PR step):** Cursor agents **must** open and maintain promotion PRs themselves. After committing and pushing work on a promotion branch, use the **ManagePullRequest** tool to `create_pr` or `update_pr`. Merge PRs only when the user explicitly requests merge.
+- **Dev Promotion (feature → dev):** Promote via GitHub PR. **Agent workflow:** Run local promotion gates (`./gradlew dependencyCheckAnalyze`, `./gradlew test`). If successful, push `feature/*`, then `create_pr` with `base_branch: dev`. This triggers Jira In Review (PR open) and Done (merge) automation.
+- **Test Promotion (dev → test):** Promote via GitHub PR. **Agent workflow:** push, then `create_pr` with `base_branch: test`.
+- **Production Promotion (test → production):** Promote via GitHub PR. **Agent workflow:** Before creating the PR, the agent must execute the following release sequence:
+  1. Update `CHANGELOG.md` with a summary of all features and fixes included in this release.
+  2. Bump `versionCode` (increment by 1) and `versionName` (semantic versioning) in the app-level `build.gradle.kts`.
+  3. Update the remote `version.json` manifest with the new `versionCode`, `versionName`, and the APK download URL.
+  4. Execute `./gradlew assembleRelease` to compile the production APK.
+  5. Push the changes, then `create_pr` with `base_branch: production`.
+  **User journey testing is mandatory** before opening or merging this PR.
+- **User journey testing:** Multi-step Espresso flows in `androidTest/java/com/touchpad/journey/`.
+  - **Production (`test` → `production`):** **Always mandatory.** Before opening or merging the promotion PR, the agent or user must run the full user journey suite locally against the local Android Studio emulator. Resolve all failures before merge.
+  - **Dev (`feature` → `dev`) and test (`dev` → `test`):** **Not mandatory by default.** Run user journey tests locally only when the user’s promotion request explicitly includes the phrase **`user test`**.
+  - **No demo recordings:** Demonstrate and verify changes with automated tests (JUnit/Espresso) and logcats.
+
+## 2. Documentation & Traceability
+- **Requirement Breakdown:** Deconstruct broad feature requests into individual, discrete requirements before writing code.
+- **Requirement Logging:** Automatically log every individual requirement addressed per commit into a dedicated `.requirements` file in the project root.
+- **Requirements Workflow:** Follow `docs/REQUIREMENTS-WORKFLOW.md` — Jira project **TP** is the planning source of truth; `.requirements` is the append-only delivery log. Every commit must reference the relevant Jira ticket (`TP-xxx`).
+- **Inline Documentation:** Generate comprehensive KDoc docstrings for all new Kotlin functions and classes. Inline comments must explain the "why" and "how".
+- **Living Documents:** Update the project changelog and relevant architectural design documents for every significant structural or functional modification.
+
+## 3. Security Standards & Inter-Process Communication
+- **Zero Trust / Deny-by-Default:** Assume all input, including IPC (Inter-Process Communication) and Intents, is malicious.
+- **Manifest Security:** All `<activity>`, `<service>`, `<receiver>`, and `<provider>` tags in the `AndroidManifest.xml` must explicitly declare `android:exported="false"` by default (launcher activity may be `exported="true"`). All exported components must sanitize Intent data.
+- **Network Security:** The application only communicates externally for version checks. Define a `res/xml/network_security_config.xml` file that strictly disables cleartext traffic (`cleartextTrafficPermitted="false"`).
+
+## 4. UI/UX, Animations, & Accessibility
+- **Design Systems:** Adhere strictly to Material Design 3 guidelines using Jetpack Compose to guarantee consistent layout and rendering.
+- **Animation Performance:** All visual state changes (e.g., colored squares lighting up) must utilize Compose animation APIs (`animateColorAsState`, `Animatable`, `updateTransition`). Do not block the UI thread with custom rendering loops or `Thread.sleep()`.
+- **Accessibility (a11y):** Implement mandatory `contentDescription` for all interactive elements. Ensure visual feedback (lighting up) is not the sole indicator of state; pair visual changes with audio or haptic feedback for inclusive design.
+
+## 5. Local Code Quality & Concurrency
+- **Formatting:** Output code that strictly conforms to ktlint and `.editorconfig`.
+- **Threading & ANR Prevention:** Never execute I/O operations (network, disk, database, or DataStore) on the Main thread. All suspending functions interacting with data must explicitly shift execution context using Kotlin Coroutines via `withContext(Dispatchers.IO)`.
+- **Vulnerability Gate (feature → dev):** Before pushing to `dev`, the agent must run `./gradlew dependencyCheckAnalyze` locally and resolve all reported issues.
+- **Local Test Execution (No CI/CD):** Because the project relies on local validation rather than cloud CI, the agent must verify code health locally prior to PR merges.
+  - **Unit Tests:** Run `./gradlew test` for JUnit/MockK tests.
+  - **UI Tests:** Run `./gradlew connectedAndroidTest` (requires a running local emulator) for Espresso/Compose tests.
+
+## 6. App Lifecycle & Updates
+- **In-App Update Prompt:** The application must asynchronously check a static, publicly accessible `version.json` endpoint upon startup.
+- **Version Comparison:** The app will parse the remote `versionCode`. If the remote `versionCode` is strictly greater than the local `BuildConfig.VERSION_CODE`, present a UI prompt directing the user to download and install the latest APK.
+- **Update Execution & Permissions:** The application must declare the `REQUEST_INSTALL_PACKAGES` permission. The downloaded APK must be saved to application-specific cache storage and shared with the Android Package Installer via a registered `FileProvider` utilizing a `content://` URI, strictly avoiding `file://` URIs.
+
+## 7. Game State & Audio Architecture
+- **Audio Stack:** Short, overlapping pad tones are synthesized in native C++ and rendered through Oboe (`PerformanceMode::LowLatency`, `SharingMode::Exclusive`). JVM ↔ native communication uses JNI; pad intensities and slider parameters are stored as `std::atomic<float>` and must never be guarded by mutexes inside `onAudioReady`.
+- **Audio Lifecycle Management:** Bind Oboe stream start/stop to Activity `onResume`/`onPause`. Release native engine resources on destroy to prevent leaks and background audio.
+- **Local State Persistence:** Implement `Preferences DataStore` (not SharedPreferences) to asynchronously persist local game settings (e.g., mute toggles, slider values).
+- **Process Death Handling:** Utilize centralized frontend state management via Android `ViewModel` and Kotlin `StateFlow`. To survive aggressive OS process termination when the game is backgrounded, all critical interactive state required to rebuild the current board/screen must be serialized into a `SavedStateHandle` injected into the `ViewModel`.

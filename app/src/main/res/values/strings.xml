@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Touch Pad</string>
+    <string name="pad_content_description">Pad %1$d, note %2$s</string>
+    <string name="slider_timbre">Timbre</string>
+    <string name="slider_brightness">Brightness</string>
+    <string name="slider_atmosphere">Atmosphere</string>
+    <string name="mute">Mute</string>
+    <string name="unmute">Unmute</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_message">A newer version (%1$s) is ready. Download and install?</string>
+    <string name="update_now">Update</string>
+    <string name="update_later">Later</string>
+</resources>
