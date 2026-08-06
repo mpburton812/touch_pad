@@ -33,15 +33,13 @@ private val PadGap = 12.dp
 private val PadCorner = 16.dp
 
 /**
- * 2×4 interactive pad grid sized to fit the available bounds without overlap.
- *
- * Why BoxWithConstraints: forcing aspectRatio(1f) from full width made four rows
- * taller than the weighted region and caused pads to stack over each other.
+ * 2×4 pad grid: press sustains, release starts Decay envelope.
  */
 @Composable
 fun PadGrid(
     intensities: List<Float>,
-    onPadTapped: (Int) -> Unit,
+    onPadPressed: (Int) -> Unit,
+    onPadReleased: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
@@ -64,12 +62,12 @@ fun PadGrid(
                 Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                     for (col in 0 until cols) {
                         val index = row * cols + col
-                        val pad = PadCatalog.pads[index]
                         PadCell(
-                            pad = pad,
+                            pad = PadCatalog.pads[index],
                             intensity = intensities.getOrElse(index) { PadCatalog.IDLE_INTENSITY },
                             side = side,
-                            onTap = { onPadTapped(index) },
+                            onPressed = { onPadPressed(index) },
+                            onReleased = { onPadReleased(index) },
                         )
                     }
                 }
@@ -83,7 +81,8 @@ private fun PadCell(
     pad: PadDefinition,
     intensity: Float,
     side: Dp,
-    onTap: () -> Unit,
+    onPressed: () -> Unit,
+    onReleased: () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
@@ -92,7 +91,6 @@ private fun PadCell(
         pad.index + 1,
         pad.noteName,
     )
-    // Idle is 10% transparent (alpha 0.9); peak tap is fully opaque.
     val alpha = intensity.coerceIn(PadCatalog.IDLE_INTENSITY, 1f)
 
     Box(
@@ -106,8 +104,12 @@ private fun PadCell(
                     onPress = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         view.playSoundEffect(SoundEffectConstants.CLICK)
-                        onTap()
-                        tryAwaitRelease()
+                        onPressed()
+                        try {
+                            tryAwaitRelease()
+                        } finally {
+                            onReleased()
+                        }
                     },
                 )
             },

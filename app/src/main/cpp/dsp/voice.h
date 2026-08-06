@@ -1,10 +1,7 @@
 #pragma once
 
 /**
- * Single oscillator voice with continuous phase accumulation.
- *
- * Why continuous phase: restarting phase on each tap creates audible clicks.
- * How: advance phase by frequency/sampleRate each sample and wrap at 1.0.
+ * Continuous phase oscillator with optional per-sample pitch drift multiplier.
  */
 class Voice {
 public:
@@ -13,8 +10,9 @@ public:
 
     /**
      * Render one sample morphing sine→triangle by [timbre] in 0..1.
+     * @param driftMultiplier micro pitch scale (e.g. 0.985..1.015); 1.0 = exact.
      */
-    float render(float timbre);
+    float render(float timbre, float driftMultiplier = 1.0f);
 
 private:
     float sampleRate_ = 48000.0f;

@@ -2,10 +2,8 @@ package com.touchpad.app.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
@@ -30,9 +28,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.touchpad.app.R
-import com.touchpad.app.ui.components.AudioControlSliders
 import com.touchpad.app.ui.components.NebulaBackground
 import com.touchpad.app.ui.components.PadGrid
+import com.touchpad.app.ui.components.SettingsDrawer
 
 @Composable
 fun TouchPadApp(viewModel: TouchPadViewModel) {
@@ -45,10 +43,13 @@ fun TouchPadApp(viewModel: TouchPadViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .safeDrawingPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .safeDrawingPadding(),
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                ) {
                     Text(
                         text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineMedium,
@@ -78,26 +79,34 @@ fun TouchPadApp(viewModel: TouchPadViewModel) {
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
-
-                PadGrid(
-                    intensities = state.intensities,
-                    onPadTapped = viewModel::onPadTapped,
+                // Pads fill remaining space; drawer overlays from the bottom.
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                AudioControlSliders(
-                    timbre = state.timbre,
-                    brightness = state.brightness,
-                    atmosphere = state.atmosphere,
-                    onTimbreChange = viewModel::onTimbreChange,
-                    onBrightnessChange = viewModel::onBrightnessChange,
-                    onAtmosphereChange = viewModel::onAtmosphereChange,
-                )
+                ) {
+                    PadGrid(
+                        intensities = state.intensities,
+                        onPadPressed = viewModel::onPadPressed,
+                        onPadReleased = viewModel::onPadReleased,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                    )
+                    SettingsDrawer(
+                        state = state,
+                        onToggle = { viewModel.setDrawerOpen(!state.drawerOpen) },
+                        onTimbreChange = viewModel::onTimbreChange,
+                        onBrightnessChange = viewModel::onBrightnessChange,
+                        onAtmosphereChange = viewModel::onAtmosphereChange,
+                        onPulseChange = viewModel::onPulseChange,
+                        onDriftChange = viewModel::onDriftChange,
+                        onChorusChange = viewModel::onChorusChange,
+                        onEchoChange = viewModel::onEchoChange,
+                        onDecayChange = viewModel::onDecayChange,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
             }
 
             state.updateAvailable?.let { update ->

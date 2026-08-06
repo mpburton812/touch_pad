@@ -2,6 +2,16 @@
 
 All notable changes to Touch Pad are documented here.
 
+## [1.1.0] - 2026-08-06
+
+### Added
+- Press-and-hold pad sustain with Decay-controlled release.
+- Bottom Controls drawer (translucent) hosting all synth sliders.
+- Pulse, Drift, Chorus, and Echo effects in a stereo Oboe pipeline.
+
+### Changed
+- DSP order: LFOs → voices → VCA → mix → LPF → chorus → echo → reverb → stereo out.
+
 ## [1.0.0] - 2026-08-06
 
 ### Added
