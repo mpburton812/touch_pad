@@ -46,6 +46,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            // Sideload distribution: sign with debug keystore until a release keystore is configured.
+            signingConfig = signingConfigs.getByName("debug")
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
