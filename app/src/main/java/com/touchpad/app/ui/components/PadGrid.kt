@@ -1,7 +1,7 @@
 package com.touchpad.app.ui.components
 
 import android.view.SoundEffectConstants
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -30,10 +33,9 @@ import com.touchpad.app.model.PadCatalog
 import com.touchpad.app.model.PadDefinition
 
 private val PadGap = 12.dp
-private val PadCorner = 16.dp
 
 /**
- * 2×4 pad grid: press sustains, release starts Decay envelope.
+ * 2×4 pad grid of translucent top-down cubes; press sustains, release decays.
  */
 @Composable
 fun PadGrid(
@@ -62,7 +64,7 @@ fun PadGrid(
                 Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                     for (col in 0 until cols) {
                         val index = row * cols + col
-                        PadCell(
+                        PadCubeCell(
                             pad = PadCatalog.pads[index],
                             intensity = intensities.getOrElse(index) { PadCatalog.IDLE_INTENSITY },
                             side = side,
@@ -77,7 +79,7 @@ fun PadGrid(
 }
 
 @Composable
-private fun PadCell(
+private fun PadCubeCell(
     pad: PadDefinition,
     intensity: Float,
     side: Dp,
@@ -91,13 +93,11 @@ private fun PadCell(
         pad.index + 1,
         pad.noteName,
     )
-    val alpha = intensity.coerceIn(PadCatalog.IDLE_INTENSITY, 1f)
+    val luminosity = intensity.coerceIn(PadCatalog.IDLE_INTENSITY, 1f)
 
     Box(
         modifier = Modifier
             .size(side)
-            .clip(RoundedCornerShape(PadCorner))
-            .background(pad.color.copy(alpha = alpha))
             .semantics { contentDescription = description }
             .pointerInput(pad.index) {
                 detectTapGestures(
@@ -113,5 +113,76 @@ private fun PadCell(
                     },
                 )
             },
-    )
+    ) {
+        TranslucentTopDownCube(
+            color = pad.color,
+            luminosity = luminosity,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * Translucent cube viewed from above: top face + right + bottom side faces.
+ */
+@Composable
+private fun TranslucentTopDownCube(
+    color: Color,
+    luminosity: Float,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val depthX = w * 0.14f
+        val depthY = h * 0.14f
+
+        val rightFace = Path().apply {
+            moveTo(w - depthX, 0f)
+            lineTo(w, depthY)
+            lineTo(w, h)
+            lineTo(w - depthX, h - depthY)
+            close()
+        }
+        val bottomFace = Path().apply {
+            moveTo(0f, h - depthY)
+            lineTo(w - depthX, h - depthY)
+            lineTo(w, h)
+            lineTo(depthX, h)
+            close()
+        }
+        val topFace = Path().apply {
+            moveTo(0f, 0f)
+            lineTo(w - depthX, 0f)
+            lineTo(w - depthX, h - depthY)
+            lineTo(0f, h - depthY)
+            close()
+        }
+
+        val topAlpha = luminosity
+        val sideAlpha = luminosity * 0.55f
+        val bottomAlpha = luminosity * 0.4f
+
+        drawPath(bottomFace, color = color.copy(alpha = bottomAlpha))
+        drawPath(
+            rightFace,
+            color = Color(
+                red = (color.red * 0.55f).coerceIn(0f, 1f),
+                green = (color.green * 0.55f).coerceIn(0f, 1f),
+                blue = (color.blue * 0.55f).coerceIn(0f, 1f),
+                alpha = sideAlpha,
+            ),
+        )
+        drawPath(topFace, color = color.copy(alpha = topAlpha))
+        drawPath(
+            path = topFace,
+            color = Color.White.copy(alpha = 0.18f * luminosity),
+            style = Stroke(width = size.minDimension * 0.02f),
+        )
+        drawRect(
+            color = Color.White.copy(alpha = 0.12f * luminosity),
+            topLeft = Offset(0f, 0f),
+            size = Size((w - depthX) * 0.35f, (h - depthY) * 0.2f),
+        )
+    }
 }
