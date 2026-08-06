@@ -123,7 +123,7 @@ private fun PadCubeCell(
 }
 
 /**
- * Translucent cube viewed from above: top face + right + bottom side faces.
+ * Translucent cube viewed from above: rounded top face + right + bottom side faces.
  */
 @Composable
 private fun TranslucentTopDownCube(
@@ -136,26 +136,38 @@ private fun TranslucentTopDownCube(
         val h = size.height
         val depthX = w * 0.14f
         val depthY = h * 0.14f
+        val topW = w - depthX
+        val topH = h - depthY
+        // Soften cube edges without collapsing the isometric silhouette.
+        val corner = (minOf(topW, topH) * 0.12f).coerceAtLeast(2f)
 
         val rightFace = Path().apply {
-            moveTo(w - depthX, 0f)
-            lineTo(w, depthY)
-            lineTo(w, h)
+            moveTo(w - depthX, corner * 0.5f)
+            lineTo(w, depthY + corner * 0.35f)
+            lineTo(w, h - corner * 0.35f)
+            quadraticTo(w, h, w - corner * 0.4f, h)
             lineTo(w - depthX, h - depthY)
             close()
         }
         val bottomFace = Path().apply {
-            moveTo(0f, h - depthY)
+            moveTo(corner * 0.5f, h - depthY)
             lineTo(w - depthX, h - depthY)
-            lineTo(w, h)
-            lineTo(depthX, h)
+            lineTo(w - corner * 0.4f, h)
+            quadraticTo(w, h, w, h - corner * 0.35f)
+            lineTo(depthX + corner * 0.35f, h)
+            quadraticTo(depthX * 0.2f, h, corner * 0.5f, h - depthY)
             close()
         }
         val topFace = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(w - depthX, 0f)
-            lineTo(w - depthX, h - depthY)
-            lineTo(0f, h - depthY)
+            moveTo(corner, 0f)
+            lineTo(topW - corner, 0f)
+            quadraticTo(topW, 0f, topW, corner)
+            lineTo(topW, topH - corner)
+            quadraticTo(topW, topH, topW - corner, topH)
+            lineTo(corner, topH)
+            quadraticTo(0f, topH, 0f, topH - corner)
+            lineTo(0f, corner)
+            quadraticTo(0f, 0f, corner, 0f)
             close()
         }
 
@@ -181,8 +193,8 @@ private fun TranslucentTopDownCube(
         )
         drawRect(
             color = Color.White.copy(alpha = 0.12f * luminosity),
-            topLeft = Offset(0f, 0f),
-            size = Size((w - depthX) * 0.35f, (h - depthY) * 0.2f),
+            topLeft = Offset(corner * 0.4f, corner * 0.4f),
+            size = Size(topW * 0.35f, topH * 0.2f),
         )
     }
 }

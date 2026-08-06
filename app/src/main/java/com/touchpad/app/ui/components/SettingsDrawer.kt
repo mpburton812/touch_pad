@@ -51,6 +51,10 @@ fun SettingsDrawer(
     onChorusChange: (Float) -> Unit,
     onEchoChange: (Float) -> Unit,
     onDecayChange: (Float) -> Unit,
+    onTextureChange: (Float) -> Unit,
+    onWeightChange: (Float) -> Unit,
+    onSwellChange: (Float) -> Unit,
+    onShimmerChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val handleLabel = if (state.drawerOpen) {
@@ -105,9 +109,13 @@ fun SettingsDrawer(
                 onChorusChange = onChorusChange,
                 onEchoChange = onEchoChange,
                 onDecayChange = onDecayChange,
+                onTextureChange = onTextureChange,
+                onWeightChange = onWeightChange,
+                onSwellChange = onSwellChange,
+                onShimmerChange = onShimmerChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 520.dp)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )

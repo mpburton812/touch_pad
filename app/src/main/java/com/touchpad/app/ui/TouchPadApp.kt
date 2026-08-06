@@ -104,6 +104,10 @@ fun TouchPadApp(viewModel: TouchPadViewModel) {
                         onChorusChange = viewModel::onChorusChange,
                         onEchoChange = viewModel::onEchoChange,
                         onDecayChange = viewModel::onDecayChange,
+                        onTextureChange = viewModel::onTextureChange,
+                        onWeightChange = viewModel::onWeightChange,
+                        onSwellChange = viewModel::onSwellChange,
+                        onShimmerChange = viewModel::onShimmerChange,
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }

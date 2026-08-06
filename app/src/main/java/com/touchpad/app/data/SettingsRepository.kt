@@ -23,6 +23,10 @@ data class GameSettings(
     val chorus: Float = 0.0f,
     val echo: Float = 0.0f,
     val decay: Float = 0.35f,
+    val texture: Float = 0.0f,
+    val weight: Float = 0.0f,
+    val swell: Float = 0.0f,
+    val shimmer: Float = 0.0f,
     val muted: Boolean = false,
 )
 
@@ -38,6 +42,10 @@ class SettingsRepository(private val context: Context) {
     private val chorusKey = floatPreferencesKey("chorus")
     private val echoKey = floatPreferencesKey("echo")
     private val decayKey = floatPreferencesKey("decay")
+    private val textureKey = floatPreferencesKey("texture")
+    private val weightKey = floatPreferencesKey("weight")
+    private val swellKey = floatPreferencesKey("swell")
+    private val shimmerKey = floatPreferencesKey("shimmer")
     private val mutedKey = booleanPreferencesKey("muted")
 
     val settings: Flow<GameSettings> = context.dataStore.data.map { prefs ->
@@ -50,6 +58,10 @@ class SettingsRepository(private val context: Context) {
             chorus = prefs[chorusKey] ?: 0.0f,
             echo = prefs[echoKey] ?: 0.0f,
             decay = prefs[decayKey] ?: 0.35f,
+            texture = prefs[textureKey] ?: 0.0f,
+            weight = prefs[weightKey] ?: 0.0f,
+            swell = prefs[swellKey] ?: 0.0f,
+            shimmer = prefs[shimmerKey] ?: 0.0f,
             muted = prefs[mutedKey] ?: false,
         )
     }
@@ -67,6 +79,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateChorus(value: Float) = putFloat(chorusKey, value)
     suspend fun updateEcho(value: Float) = putFloat(echoKey, value)
     suspend fun updateDecay(value: Float) = putFloat(decayKey, value)
+    suspend fun updateTexture(value: Float) = putFloat(textureKey, value)
+    suspend fun updateWeight(value: Float) = putFloat(weightKey, value)
+    suspend fun updateSwell(value: Float) = putFloat(swellKey, value)
+    suspend fun updateShimmer(value: Float) = putFloat(shimmerKey, value)
 
     suspend fun updateMuted(muted: Boolean) = withContext(Dispatchers.IO) {
         context.dataStore.edit { it[mutedKey] = muted }

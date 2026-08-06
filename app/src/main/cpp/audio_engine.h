@@ -9,6 +9,7 @@
 #include "dsp/echo.h"
 #include "dsp/filter.h"
 #include "dsp/lfo.h"
+#include "dsp/pink_noise.h"
 #include "dsp/reverb.h"
 #include "dsp/voice.h"
 
@@ -17,7 +18,7 @@ namespace touchpad {
 constexpr int kPadCount = 8;
 
 /**
- * Lock-free stereo Oboe engine: voices → VCA → LPF(Pulse) → Chorus → Echo → Reverb.
+ * Lock-free stereo Oboe engine with Texture/Weight/Swell/Shimmer.
  */
 class AudioEngine : public oboe::AudioStreamDataCallback,
                     public oboe::AudioStreamErrorCallback {
@@ -36,6 +37,10 @@ public:
     void setDrift(float value);
     void setChorus(float value);
     void setEcho(float value);
+    void setTexture(float value);
+    void setWeight(float value);
+    void setSwell(float value);
+    void setShimmer(float value);
     void setMuted(bool muted);
 
     oboe::DataCallbackResult onAudioReady(
@@ -54,6 +59,7 @@ private:
     StereoChorus chorus_;
     StereoEcho echoEffect_;
     SimpleReverb reverb_;
+    PinkNoise pinkNoise_;
 
     SineLfo pulseLfo_;
     SineLfo driftLfoA_;
@@ -68,6 +74,10 @@ private:
     std::atomic<float> drift_{0.0f};
     std::atomic<float> chorusMix_{0.0f};
     std::atomic<float> echoMix_{0.0f};
+    std::atomic<float> texture_{0.0f};
+    std::atomic<float> weight_{0.0f};
+    std::atomic<float> swell_{0.0f};
+    std::atomic<float> shimmer_{0.0f};
     std::atomic<bool> muted_{false};
 
     float sampleRate_ = 48000.0f;
