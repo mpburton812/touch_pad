@@ -88,3 +88,9 @@ Execute this sequence per audio frame:
 - REQ: Controls in bottom drawer (10% transparent overlay) → `SettingsDrawer`
 - REQ: Pulse / Drift / Chorus / Echo sliders + stereo DSP order → native engine + JNI
 - REQ: Decay slider maps 80ms–4000ms release → `DecayTiming`
+
+### 2026-08-06 — TP-3 Cube pads, luminosity, nebula speed
+
+- REQ: Idle luminosity 30%, peak 100% with volume → `IDLE_INTENSITY = 0.3`
+- REQ: Pads appear as translucent top-down cubes → `PadGrid` Canvas faces
+- REQ: Nebula spins a little faster → phase step 0.007 + subtle rotate
