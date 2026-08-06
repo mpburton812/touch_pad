@@ -11,13 +11,10 @@
 namespace touchpad {
 
 namespace {
-// C4..C5 frequencies matching .requirements pad table.
 constexpr float kFrequencies[kPadCount] = {
     261.63f, 293.66f, 329.63f, 349.23f,
     392.00f, 440.00f, 493.88f, 523.25f,
 };
-
-// Headroom coefficient from requirements: prevent clipping when all pads fire.
 constexpr float kMasterGain = 0.25f;
 }  // namespace
 
@@ -26,6 +23,10 @@ AudioEngine::AudioEngine() {
         padIntensity_[i].store(0.0f, std::memory_order_relaxed);
         voices_[i].setFrequency(kFrequencies[i]);
     }
+    pulseLfo_.setFrequencyHz(0.35f);
+    driftLfoA_.setFrequencyHz(0.3f);
+    driftLfoB_.setFrequencyHz(0.7f);
+    chorusLfo_.setFrequencyHz(1.0f);
 }
 
 AudioEngine::~AudioEngine() {
@@ -38,13 +39,12 @@ bool AudioEngine::openStream() {
         ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
         ->setSharingMode(oboe::SharingMode::Exclusive)
         ->setFormat(oboe::AudioFormat::Float)
-        ->setChannelCount(oboe::ChannelCount::Mono)
-        ->setDataCallback(this)
-        ->setErrorCallback(this);
+        ->setChannelCount(oboe::ChannelCount::Stereo)
+        ->setDataCallback(static_cast<oboe::AudioStreamDataCallback*>(this))
+        ->setErrorCallback(static_cast<oboe::AudioStreamErrorCallback*>(this));
 
     oboe::Result result = builder.openStream(stream_);
     if (result != oboe::Result::OK) {
-        // Exclusive may be unavailable on some emulators; fall back to shared.
         ALOGE("Exclusive open failed (%s); retrying Shared", oboe::convertToText(result));
         builder.setSharingMode(oboe::SharingMode::Shared);
         result = builder.openStream(stream_);
@@ -59,8 +59,14 @@ bool AudioEngine::openStream() {
         voice.setSampleRate(sampleRate_);
     }
     filter_.setSampleRate(sampleRate_);
+    chorus_.setSampleRate(sampleRate_);
+    echoEffect_.setSampleRate(sampleRate_);
     reverb_.setSampleRate(sampleRate_);
-    ALOGI("Stream opened sr=%d frames=%d", stream_->getSampleRate(), stream_->getFramesPerBurst());
+    pulseLfo_.setSampleRate(sampleRate_);
+    driftLfoA_.setSampleRate(sampleRate_);
+    driftLfoB_.setSampleRate(sampleRate_);
+    chorusLfo_.setSampleRate(sampleRate_);
+    ALOGI("Stereo stream opened sr=%d", stream_->getSampleRate());
     return true;
 }
 
@@ -93,8 +99,7 @@ void AudioEngine::setPadIntensity(int index, float intensity) {
     if (index < 0 || index >= kPadCount) {
         return;
     }
-    const float clamped = std::clamp(intensity, 0.0f, 1.0f);
-    padIntensity_[index].store(clamped, std::memory_order_relaxed);
+    padIntensity_[index].store(std::clamp(intensity, 0.0f, 1.0f), std::memory_order_relaxed);
 }
 
 void AudioEngine::setTimbre(float value) {
@@ -109,6 +114,22 @@ void AudioEngine::setAtmosphere(float value) {
     atmosphere_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
 }
 
+void AudioEngine::setPulse(float value) {
+    pulse_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void AudioEngine::setDrift(float value) {
+    drift_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void AudioEngine::setChorus(float value) {
+    chorusMix_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void AudioEngine::setEcho(float value) {
+    echoMix_.store(std::clamp(value, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+
 void AudioEngine::setMuted(bool muted) {
     muted_.store(muted, std::memory_order_relaxed);
 }
@@ -121,11 +142,13 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     const float timbre = timbre_.load(std::memory_order_relaxed);
     const float brightness = brightness_.load(std::memory_order_relaxed);
     const float atmosphere = atmosphere_.load(std::memory_order_relaxed);
+    const float pulse = pulse_.load(std::memory_order_relaxed);
+    const float driftAmt = drift_.load(std::memory_order_relaxed);
+    const float chorusAmt = chorusMix_.load(std::memory_order_relaxed);
+    const float echoAmt = echoMix_.load(std::memory_order_relaxed);
     const bool muted = muted_.load(std::memory_order_relaxed);
 
-    // Map brightness 0..1 → ~300Hz..3000Hz cutoff.
-    const float cutoffHz = 300.0f + brightness * 2700.0f;
-    filter_.setCutoffHz(cutoffHz);
+    const float baseCutoff = 300.0f + brightness * 2700.0f;
 
     float intensities[kPadCount];
     for (int i = 0; i < kPadCount; ++i) {
@@ -133,18 +156,51 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     }
 
     for (int32_t frame = 0; frame < numFrames; ++frame) {
+        // 1) Global LFOs
+        const float pulseSine = pulseLfo_.next();
+        const float driftSine =
+            0.5f * driftLfoA_.next() + 0.5f * driftLfoB_.next();
+        const float chorusSine = chorusLfo_.next();
+
+        // Drift micro-multiplier: 1 ± 1.5% at full depth.
+        const float driftMult = 1.0f + driftSine * driftAmt * 0.015f;
+
+        // 2–3) Voices + VCA
         float mixed = 0.0f;
         for (int i = 0; i < kPadCount; ++i) {
-            mixed += voices_[i].render(timbre) * intensities[i];
+            mixed += voices_[i].render(timbre, driftMult) * intensities[i];
         }
+
+        // 4) Headroom
         mixed *= kMasterGain;
         if (muted) {
             mixed = 0.0f;
         }
+
+        // 5) LPF with Pulse (±2 octaves at full depth)
+        const float oct = pulseSine * pulse * 2.0f;
+        const float cutoff = baseCutoff * std::pow(2.0f, oct);
+        filter_.setCutoffHz(cutoff);
         mixed = filter_.process(mixed);
-        // Reverb after VCA so tails ring while visuals decay to idle alpha.
-        mixed = reverb_.process(mixed, atmosphere);
-        out[frame] = std::clamp(mixed, -1.0f, 1.0f);
+
+        // 6) Chorus → stereo
+        float left = mixed;
+        float right = mixed;
+        chorus_.process(mixed, chorusAmt, chorusSine, left, right);
+
+        // 7) Echo
+        float echoL = left;
+        float echoR = right;
+        echoEffect_.process(left, right, echoAmt, echoL, echoR);
+
+        // 8) Reverb
+        float revL = echoL;
+        float revR = echoR;
+        reverb_.process(echoL, echoR, atmosphere, revL, revR);
+
+        // 9) Interleaved stereo
+        out[frame * 2] = std::clamp(revL, -1.0f, 1.0f);
+        out[frame * 2 + 1] = std::clamp(revR, -1.0f, 1.0f);
     }
     return oboe::DataCallbackResult::Continue;
 }
@@ -152,7 +208,6 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
 void AudioEngine::onErrorAfterClose(oboe::AudioStream* /*stream*/, oboe::Result error) {
     ALOGE("Stream error after close: %s", oboe::convertToText(error));
     stream_.reset();
-    // Best-effort restart so backgrounding/foregrounding recovers audio.
     start();
 }
 

@@ -81,3 +81,10 @@ Execute this sequence per audio frame:
 - REQ: Idle pads 10% transparent (alpha 0.9) → `PadCatalog.IDLE_INTENSITY`
 - REQ: Compact in-bar Timbre/Brightness/Atmosphere sliders with full-height thumb + contrast labels → `AudioControlSliders`
 - FIX: Force-close on pad tap → replace Compose `Animatable` in ViewModel with wall-clock lerp (no `MonotonicFrameClock`)
+
+### 2026-08-06 — TP-2 Sustain, drawer, expanded DSP
+
+- REQ: Sustain note while pad pressed; release decay from Decay slider → `TouchPadViewModel` press/release
+- REQ: Controls in bottom drawer (10% transparent overlay) → `SettingsDrawer`
+- REQ: Pulse / Drift / Chorus / Echo sliders + stereo DSP order → native engine + JNI
+- REQ: Decay slider maps 80ms–4000ms release → `DecayTiming`
