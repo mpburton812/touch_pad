@@ -104,6 +104,6 @@ Execute this sequence per audio frame:
 - REQ: Shimmer octave-up reverb send → shimmerSend bus into reverb
 - REQ: Persist four new sliders via DataStore + SavedStateHandle → `SettingsRepository` / `TouchPadViewModel`
 
-### 2026-08-06 � GitHub Pages version manifest
+### 2026-08-06 — GitHub Pages version manifest
 
-- FIX: Serve update manifest from Pages /docs ? docs/version.json + .nojekyll`n
+- FIX: Serve update manifest from Pages /docs → `docs/version.json` + `.nojekyll` + Actions workflow
