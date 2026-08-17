@@ -15,8 +15,8 @@ android {
         applicationId = "com.touchpad.app"
         minSdk = 27
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -35,11 +35,11 @@ android {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
 
-        // Static version manifest URL (GitHub Pages / raw content). Override via local.properties if needed.
+        // Static version manifest. Raw GitHub until Pages deploy is reliable.
         buildConfigField(
             "String",
             "VERSION_MANIFEST_URL",
-            "\"https://mpburton812.github.io/touch_pad/version.json\"",
+            "\"https://raw.githubusercontent.com/mpburton812/touch_pad/production/docs/version.json\"",
         )
     }
 

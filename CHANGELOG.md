@@ -2,6 +2,12 @@
 
 All notable changes to Touch Pad are documented here.
 
+## [1.4.0] - 2026-08-17
+
+### Changed
+- Cube pads use a rounded outer silhouette with matching extruded faces (no leftover highlight rectangle).
+- In-app update check reads `docs/version.json` from raw GitHub while Pages deploy is unreliable.
+
 ## [1.3.0] - 2026-08-06
 
 ### Added

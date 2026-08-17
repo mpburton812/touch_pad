@@ -107,3 +107,8 @@ Execute this sequence per audio frame:
 ### 2026-08-06 — GitHub Pages version manifest
 
 - FIX: Serve update manifest from Pages /docs → `docs/version.json` + `.nojekyll` + Actions workflow
+
+### 2026-08-17 — TP-5 Cube redraw + raw update URL
+
+- FIX: Cube pads rounded outer silhouette, matching side quads, no leftover highlight rect → `PadGrid.TranslucentTopDownCube`
+- FIX: Update check uses raw GitHub `docs/version.json` → `VERSION_MANIFEST_URL`
