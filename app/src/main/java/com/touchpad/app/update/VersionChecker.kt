@@ -17,8 +17,8 @@ data class RemoteVersion(
 /**
  * Fetches the static `version.json` manifest over HTTPS.
  *
- * Why not GitHub REST API: rate limits and PAT exposure. A static file on Pages
- * (or similar) keeps update checks anonymous and cache-friendly.
+ * Why not GitHub REST API: rate limits and PAT exposure. A public raw file
+ * keeps update checks anonymous and cache-friendly.
  */
 class VersionChecker(
     private val manifestUrl: String = BuildConfig.VERSION_MANIFEST_URL,
@@ -41,7 +41,7 @@ class VersionChecker(
                 if (remote.versionCode > BuildConfig.VERSION_CODE) remote else null
             }
         } catch (_: Exception) {
-            // Offline / missing Pages host is non-fatal for a local toy.
+            // Offline / missing host is non-fatal for a local toy.
             null
         }
     }

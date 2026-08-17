@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -123,7 +126,7 @@ private fun PadCubeCell(
 }
 
 /**
- * Translucent cube viewed from above: rounded top face + right + bottom side faces.
+ * Translucent cube viewed from above: rounded silhouette, extruded right + bottom faces.
  */
 @Composable
 private fun TranslucentTopDownCube(
@@ -138,36 +141,27 @@ private fun TranslucentTopDownCube(
         val depthY = h * 0.14f
         val topW = w - depthX
         val topH = h - depthY
-        // Soften cube edges without collapsing the isometric silhouette.
-        val corner = (minOf(topW, topH) * 0.12f).coerceAtLeast(2f)
+        val r = (minOf(topW, topH) * 0.12f).coerceAtLeast(2f)
+        val corner = CornerRadius(r, r)
 
-        val rightFace = Path().apply {
-            moveTo(w - depthX, corner * 0.5f)
-            lineTo(w, depthY + corner * 0.35f)
-            lineTo(w, h - corner * 0.35f)
-            quadraticTo(w, h, w - corner * 0.4f, h)
-            lineTo(w - depthX, h - depthY)
-            close()
-        }
-        val bottomFace = Path().apply {
-            moveTo(corner * 0.5f, h - depthY)
-            lineTo(w - depthX, h - depthY)
-            lineTo(w - corner * 0.4f, h)
-            quadraticTo(w, h, w, h - corner * 0.35f)
-            lineTo(depthX + corner * 0.35f, h)
-            quadraticTo(depthX * 0.2f, h, corner * 0.5f, h - depthY)
-            close()
+        val outer = Path().apply {
+            addRoundRect(RoundRect(0f, 0f, w, h, corner))
         }
         val topFace = Path().apply {
-            moveTo(corner, 0f)
-            lineTo(topW - corner, 0f)
-            quadraticTo(topW, 0f, topW, corner)
-            lineTo(topW, topH - corner)
-            quadraticTo(topW, topH, topW - corner, topH)
-            lineTo(corner, topH)
-            quadraticTo(0f, topH, 0f, topH - corner)
-            lineTo(0f, corner)
-            quadraticTo(0f, 0f, corner, 0f)
+            addRoundRect(RoundRect(0f, 0f, topW, topH, corner))
+        }
+        val bottomFace = Path().apply {
+            moveTo(0f, topH)
+            lineTo(topW, topH)
+            lineTo(w, h)
+            lineTo(depthX, h)
+            close()
+        }
+        val rightFace = Path().apply {
+            moveTo(topW, 0f)
+            lineTo(w, depthY)
+            lineTo(w, h)
+            lineTo(topW, topH)
             close()
         }
 
@@ -175,26 +169,35 @@ private fun TranslucentTopDownCube(
         val sideAlpha = luminosity * 0.55f
         val bottomAlpha = luminosity * 0.4f
 
-        drawPath(bottomFace, color = color.copy(alpha = bottomAlpha))
-        drawPath(
-            rightFace,
-            color = Color(
-                red = (color.red * 0.55f).coerceIn(0f, 1f),
-                green = (color.green * 0.55f).coerceIn(0f, 1f),
-                blue = (color.blue * 0.55f).coerceIn(0f, 1f),
-                alpha = sideAlpha,
-            ),
-        )
+        clipPath(outer) {
+            drawPath(bottomFace, color = color.copy(alpha = bottomAlpha))
+            drawPath(
+                rightFace,
+                color = Color(
+                    red = (color.red * 0.55f).coerceIn(0f, 1f),
+                    green = (color.green * 0.55f).coerceIn(0f, 1f),
+                    blue = (color.blue * 0.55f).coerceIn(0f, 1f),
+                    alpha = sideAlpha,
+                ),
+            )
+        }
         drawPath(topFace, color = color.copy(alpha = topAlpha))
         drawPath(
             path = topFace,
             color = Color.White.copy(alpha = 0.18f * luminosity),
             style = Stroke(width = size.minDimension * 0.02f),
         )
-        drawRect(
-            color = Color.White.copy(alpha = 0.12f * luminosity),
-            topLeft = Offset(corner * 0.4f, corner * 0.4f),
-            size = Size(topW * 0.35f, topH * 0.2f),
-        )
+        clipPath(topFace) {
+            drawRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.12f * luminosity),
+                        Color.Transparent,
+                    ),
+                    start = Offset(0f, 0f),
+                    end = Offset(topW * 0.55f, topH * 0.45f),
+                ),
+            )
+        }
     }
 }
